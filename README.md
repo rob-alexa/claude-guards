@@ -5,53 +5,60 @@ runs when the command would fail without saying so: it exits 0, prints nothing o
 plausible, and reads as a real answer. Each one exists because that happened on real work and the
 wrong answer was believed.
 
-Packaged as a Claude Code plugin named `command-guards`. Each guard is also a standalone script,
-so you can wire just the ones you want.
+They ship as two Claude Code plugins in one marketplace, so you can take the Salesforce guards
+without the others or the other way round. Each guard is also a standalone script, so you can wire
+just the ones you want.
 
-## The guards
+## command-guards: shell and GitHub
 
 | Guard | What it catches | What it does |
 |---|---|---|
-| [Empty SOQL values](hooks/guards/pretool-soql-guard.py) | A SOQL `IN (...)` list with an empty element, such as `IN ('')`. SOQL reads that as every record where the field is blank, so a narrow filter becomes a broad one, and under a delete it removes far more than intended. | Blocks. |
-| [Hidden CLI errors](hooks/guards/pretool-sf-json-stderr-guard.py) | `sf ... --json \| jq`, where a failed command's error envelope has no `.result`, so jq prints nothing and the failure reads as an empty result. `2>/dev/null` and a `?` in the jq filter make it worse. | Rewrites a read-only command to `sfj` and still asks before it runs. Blocks a mutating command that hides stderr. |
-| [Backup files](hooks/guards/pretool-deploy-backup-file-guard.py) | `sf project deploy start` or `validate` over a folder holding a backup copy such as `X.permissionset-meta.xml.bak`. The source resolver sends the backup's content in place of the real file and the deploy reports success. | Blocks. |
-| [Unset shell variables](hooks/guards/pretool-bash-unset-var-guard.py) | A `$VAR` set in an earlier Bash tool call. Each call gets a fresh shell, so the variable expands to nothing and a different command runs. | Blocks. |
-| [Silent search failures](hooks/guards/pretool-grep-abort-guard.py) | `grep -i` with `-F`, or with two or more literal patterns, in Git Bash. The GNU grep 3.0 that Git for Windows ships aborts on these under the C locale, with no output and no message. | Blocks, with the `LC_ALL=C.UTF-8` fix. Stands down where grep does not abort. |
-| [Stacked pull requests](hooks/guards/pretool-stacked-pr-merge-guard.py) | `gh pr merge` while another open pull request uses the merging one's branch as its base. Deleting that branch closes the stacked pull request instead of retargeting it. | Blocks, naming the `gh pr edit --base` fix. |
+| [Unset shell variables](plugins/command-guards/hooks/guards/pretool-bash-unset-var-guard.py) | A `$VAR` set in an earlier Bash tool call. Each call gets a fresh shell, so the variable expands to nothing and a different command runs. | Blocks. |
+| [Silent search failures](plugins/command-guards/hooks/guards/pretool-grep-abort-guard.py) | `grep -i` with `-F`, or with two or more literal patterns, in Git Bash. The GNU grep 3.0 that Git for Windows ships aborts on these under the C locale, with no output and no message. | Blocks, with the `LC_ALL=C.UTF-8` fix. Stands down where grep does not abort. |
+| [Stacked pull requests](plugins/command-guards/hooks/guards/pretool-stacked-pr-merge-guard.py) | `gh pr merge` while another open pull request uses the merging one's branch as its base. Deleting that branch closes the stacked pull request instead of retargeting it. | Blocks, naming the `gh pr edit --base` fix. |
+
+## salesforce-command-guards: the Salesforce CLI
+
+| Guard | What it catches | What it does |
+|---|---|---|
+| [Empty SOQL values](plugins/salesforce-command-guards/hooks/guards/pretool-soql-guard.py) | A SOQL `IN (...)` list with an empty element, such as `IN ('')`. SOQL reads that as every record where the field is blank, so a narrow filter becomes a broad one, and under a delete it removes far more than intended. | Blocks. |
+| [Hidden CLI errors](plugins/salesforce-command-guards/hooks/guards/pretool-sf-json-stderr-guard.py) | `sf ... --json \| jq`, where a failed command's error envelope has no `.result`, so jq prints nothing and the failure reads as an empty result. `2>/dev/null` and a `?` in the jq filter make it worse. | Rewrites a read-only command to `sfj` and still asks before it runs. Blocks a mutating command that hides stderr. |
+| [Backup files](plugins/salesforce-command-guards/hooks/guards/pretool-deploy-backup-file-guard.py) | `sf project deploy start` or `validate` over a folder holding a backup copy such as `X.permissionset-meta.xml.bak`. The source resolver sends the backup's content in place of the real file and the deploy reports success. | Blocks. |
+
+The [`sfj`](plugins/salesforce-command-guards/bin/sfj) wrapper that the CLI-errors guard rewrites
+to ships in the plugin's `bin/`, which Claude Code puts on the Bash tool's PATH while the plugin is
+enabled. It runs `sf <args> --json`, prints only the JSON, and when sf really failed, prints sf's
+error name and message to stderr and exits non-zero.
 
 Every guard fails open: an internal error, or a missing tool such as `gh`, lets the command
 through rather than blocking every call. None has an override flag, because in each case the
 corrected command is always available and does the same work.
 
-The [`sfj`](bin/sfj) wrapper that the CLI-errors guard rewrites to ships in `bin/`, which Claude
-Code puts on the Bash tool's PATH while the plugin is enabled. It runs `sf <args> --json`, prints
-only the JSON, and when sf really failed, prints sf's error name and message to stderr and exits
-non-zero.
-
 ## Install
 
-In a Claude Code session:
+In a Claude Code session, add the marketplace once, then install either plugin or both:
 
 ```
 /plugin marketplace add rob-alexa/claude-code-guards
 /plugin install command-guards@command-guards
+/plugin install salesforce-command-guards@command-guards
 ```
 
 Requirements:
 
 - Python 3, run as `python3` on macOS and Linux and as `python` in Git Bash on Windows.
-- `sf` and `jq` for the Salesforce guards and `sfj`.
-- `gh`, signed in, for the stacked pull request guard. Without it that guard stays silent.
+- For `salesforce-command-guards`: `sf` and `jq`.
+- For the stacked pull request guard: `gh`, signed in. Without it that guard stays silent.
 
-The hooks are registered on the `Bash` and `PowerShell` tools only.
+Both plugins register their hooks on the `Bash` and `PowerShell` tools only.
 
 ### Windows and the Claude desktop app
 
-The plugin's hook runs through Git Bash, and on Windows the Claude desktop app gives every console
+Each plugin's hook runs through Git Bash, and on Windows the Claude desktop app gives every console
 process a hook starts its own console window, which can flash and take focus on each tool call
 ([anthropics/claude-code#14828](https://github.com/anthropics/claude-code/issues/14828)). If that
-happens, skip the plugin and wire the runner by hand in `~/.claude/settings.json` with
-[`hook-no-window.py`](hooks/hook-no-window.py), which starts it without a console:
+happens, skip the plugin and wire its runner by hand in `~/.claude/settings.json` with
+`hooks/hook-no-window.py`, which starts it without a console:
 
 ```json
 {
@@ -64,8 +71,8 @@ happens, skip the plugin and wire the runner by hand in `~/.claude/settings.json
             "type": "command",
             "command": "pythonw",
             "args": [
-              "C:/path/to/claude-code-guards/hooks/hook-no-window.py", "--",
-              "python", "C:/path/to/claude-code-guards/hooks/pretool-guards.py"
+              "C:/path/to/claude-code-guards/plugins/command-guards/hooks/hook-no-window.py", "--",
+              "python", "C:/path/to/claude-code-guards/plugins/command-guards/hooks/pretool-guards.py"
             ],
             "timeout": 30
           }
@@ -76,8 +83,9 @@ happens, skip the plugin and wire the runner by hand in `~/.claude/settings.json
 }
 ```
 
-Wired by hand, `bin/` is not on the PATH automatically, so add it yourself if you use the
-CLI-errors guard.
+For the Salesforce guards, add a second entry the same way with `salesforce-command-guards` in both
+paths. Wired by hand, `bin/` is not on the PATH automatically, so add
+`plugins/salesforce-command-guards/bin` yourself if you use the CLI-errors guard.
 
 ## Wire a single guard by hand
 
@@ -93,7 +101,7 @@ its own hook:
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /path/to/claude-code-guards/hooks/guards/pretool-soql-guard.py"
+            "command": "python3 /path/to/claude-code-guards/plugins/salesforce-command-guards/hooks/guards/pretool-soql-guard.py"
           }
         ]
       }
@@ -102,10 +110,10 @@ its own hook:
 }
 ```
 
-The plugin instead registers one runner, [`hooks/pretool-guards.py`](hooks/pretool-guards.py),
-which runs all six in a single Python process. Starting one interpreter per tool call rather than
-six is faster, most of all on Windows. When more than one guard has something to say, a block wins
-over an ask, and every blocking guard's reason is reported together.
+Each plugin instead registers one runner, `hooks/pretool-guards.py`, which runs its three guards in
+a single Python process. Starting one interpreter per tool call rather than three is faster, most
+of all on Windows. When more than one guard has something to say, a block wins over an ask, and
+every blocking guard's reason is reported together.
 
 ## Self-checks
 
@@ -114,8 +122,9 @@ JSON payload on stdin. No org, no network: the stacked pull request suite puts a
 PATH.
 
 ```bash
-python hooks/test-pretool-guards.py
-for t in hooks/guards/test-*.py; do python "$t" || echo "FAILED: $t"; done
+for t in plugins/*/hooks/test-pretool-guards.py plugins/*/hooks/guards/test-*.py; do
+  python "$t" || echo "FAILED: $t"
+done
 ```
 
 Most of each suite is false-positive coverage, on purpose. A guard that blocks ordinary commands

@@ -1,0 +1,10 @@
+{
+  "name": "salesforce-command-guards",
+  "version": "1.0.0",
+  "description": "PreToolUse guards for Salesforce CLI commands that fail silently: an empty value in a SOQL IN list, a failed sf query read as empty, and a deploy that sends a backup file. Ships the sfj wrapper.",
+  "author": { "name": "Rob Alexander" },
+  "homepage": "https://github.com/rob-alexa/claude-code-guards",
+  "repository": "https://github.com/rob-alexa/claude-code-guards",
+  "license": "MIT",
+  "keywords": ["hooks", "guards", "salesforce", "sf-cli", "soql", "deploy"]
+}

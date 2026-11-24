@@ -14,9 +14,8 @@ one's existing `main()` with `sys.stdin` and `sys.stdout` redirected and reads b
 printed. Nothing about any guard's decision logic moves.
 
 EACH GUARD STILL FILTERS ITSELF. Every guard's `main()` checks `tool_name` first and returns
-silently on a tool it does not cover: the unset-variable and grep-abort guards take `Bash` alone,
-and the other four take `Bash` and `PowerShell`. hooks.json registers this runner on exactly those
-two tools.
+silently on a tool it does not cover, and all three here take `Bash` and `PowerShell`, the two
+tools hooks.json registers this runner on.
 
 EVERY GUARD SEES THE ORIGINAL INPUT, never a rewritten one.
 
@@ -48,12 +47,9 @@ HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "guards")
 
 # Order decides which reason leads when more than one guard denies.
 GUARDS = (
-    "pretool-bash-unset-var-guard.py",
     "pretool-soql-guard.py",
     "pretool-sf-json-stderr-guard.py",
     "pretool-deploy-backup-file-guard.py",
-    "pretool-grep-abort-guard.py",
-    "pretool-stacked-pr-merge-guard.py",
 )
 
 

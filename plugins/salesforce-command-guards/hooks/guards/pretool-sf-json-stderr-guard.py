@@ -179,7 +179,7 @@ _WHY = (
     "`sf ... --json 2>{/dev/null,&1,$null} | jq` masks failures: on error sf prints its error as "
     "JSON to stdout (.status/.name/.message, no .result) and exits non-zero, so `2>/dev/null | jq` "
     "yields a SILENT null and `2>&1` breaks jq. Prefer `sfj ... | jq` (bin/sfj from the "
-    "command-guards plugin, on your PATH) — quiet AND it surfaces failures — or just drop the redirect: "
+    "salesforce-command-guards plugin, on your PATH) — quiet AND it surfaces failures — or just drop the redirect: "
     "`sf ... --json | jq`."
 )
 

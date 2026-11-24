@@ -30,9 +30,9 @@ TWO SHAPES REACH IT, measured 2026-09-25 against that grep:
 
 WHAT THIS DOES: deny, with the fix in the message. The fix is the same command with LC_ALL=C.UTF-8
 in front of that grep (measured: C.UTF-8, C.utf8, en_US.UTF-8, and LANG= or LC_CTYPE= alone all
-work), or the Grep tool, which is ripgrep. It deliberately does not rewrite the command. pretool-guards.py
-passes through only one rewrite, so a pipeline this guard and the sfj guard both wanted to change
-would still abort. A deny costs one round trip and grants nothing. It came up 23 times across 84,967 distinct past Bash commands in the local
+work), or the Grep tool, which is ripgrep. It deliberately does not rewrite the command: a deny costs one
+round trip and grants nothing, and a rewrite would have to compete with any other guard's
+correction of the same command. It came up 23 times across 84,967 distinct past Bash commands in the local
 transcripts, every one a real abort and 17 of them the multi-pattern shape (replayed 2026-09-25).
 
 WHY NOT EXPORT A UTF-8 LOCALE FOR EVERY COMMAND INSTEAD. It would fix the abort everywhere the Bash

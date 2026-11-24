@@ -1,6 +1,9 @@
 {
   "name": "command-guards",
   "owner": { "name": "Rob Alexander" },
-  "metadata": { "description": "Claude Code guard hooks for shell, Salesforce CLI, and GitHub commands that fail without saying so." },
-  "plugins": [{ "name": "command-guards", "source": "./" }]
+  "metadata": { "description": "Claude Code guard hooks for commands that fail without saying so: one plugin for shell and GitHub commands, one for the Salesforce CLI." },
+  "plugins": [
+    { "name": "command-guards", "source": "./plugins/command-guards" },
+    { "name": "salesforce-command-guards", "source": "./plugins/salesforce-command-guards" }
+  ]
 }

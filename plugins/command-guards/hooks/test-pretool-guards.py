@@ -151,13 +151,17 @@ def main() -> int:
     check(bool(on_disk), "found check files under hooks/guards/ (an empty scope is not a clear one)")
     check(sorted(guards) == on_disk, "GUARDS lists exactly the pretool-*-guard.py files on disk",
           "disk={0} registered={1}".format(on_disk, sorted(guards)))
-    check(len(guards) == 6, "the plugin carries the six guards", str(len(guards)))
+    check(len(guards) == 3, "the plugin carries its three guards", str(len(guards)))
     for g in guards:
         check(os.path.isfile(os.path.join(GUARD_DIR, "test-" + g)),
               "{0} has its own self-check suite beside it".format(g))
 
     tmp = tempfile.mkdtemp(prefix="pretool-guards-")
-    env = dict(os.environ, CLAUDE_PROJECT_DIR=tmp)
+    # The grep-abort guard stands down in a UTF-8 locale (correctly, since grep only aborts in
+    # the C locale), and Python on Linux coerces one unless told not to.
+    env = dict(((k, v) for k, v in os.environ.items()
+                if k not in ("LANG", "LC_ALL", "LC_CTYPE")),
+               CLAUDE_PROJECT_DIR=tmp, PYTHONCOERCECLOCALE="0")
 
     # (label, payload, hardcoded expected verdict)
     cases = [
@@ -165,14 +169,6 @@ def main() -> int:
          payload("Bash", {"command": "git status --porcelain"}), "none"),
         ("a variable set in a previous call is denied",
          payload("Bash", {"command": "git diff $MB..$B -- README.md"}), "deny"),
-        ("an empty element in a SOQL IN list is denied",
-         payload("Bash", {"command":
-                          "sf data query -q \"SELECT Id FROM Account WHERE Name IN ('')\""}),
-         "deny"),
-        ("a read-only sf --json piped to jq is corrected, and still asks",
-         payload("Bash", {"command": "sf data query -q \"SELECT Id FROM Account\" --json "
-                                     "| jq '.result'"}),
-         "ask-rewrite:sfj data query -q \"SELECT Id FROM Account\" | jq '.result'"),
         ("PowerShell $_ does NOT trip the Bash-only unset-variable check",
          payload("PowerShell", {"command":
                                 "Get-Process | Where-Object { $_.Name -eq 'python' }"}), "none"),
@@ -193,8 +189,7 @@ def main() -> int:
               "expected={0} got={1}".format(expected, from_dispatcher))
 
     print("\nNo deny is hidden behind another")
-    multi = payload("Bash", {"command": "echo $PROBE_ALIAS; sf data query -q "
-                                        "\"SELECT Id FROM Account WHERE Name IN ('')\""})
+    multi = payload("Bash", {"command": "echo $PROBE_ALIAS; grep -iF abc notes.txt"})
     verdicts = guard_verdicts(guards, multi, env)
     denied = [(g, o) for g, o in verdicts if o and o.get("permissionDecision") == "deny"]
     check(len(denied) >= 2, "the payload really does trip more than one check",
