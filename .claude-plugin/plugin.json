@@ -1,0 +1,10 @@
+{
+  "name": "command-guards",
+  "version": "1.0.0",
+  "description": "PreToolUse guards for commands that fail silently: an empty value in a SOQL IN list, a failed sf query read as empty, a deploy that sends a backup file, an unset shell variable, a grep that aborts in Git Bash, and a merge that closes a stacked pull request.",
+  "author": { "name": "Rob Alexander" },
+  "homepage": "https://github.com/rob-alexa/claude-code-guards",
+  "repository": "https://github.com/rob-alexa/claude-code-guards",
+  "license": "MIT",
+  "keywords": ["hooks", "guards", "salesforce", "sf-cli", "soql", "git-bash", "github"]
+}

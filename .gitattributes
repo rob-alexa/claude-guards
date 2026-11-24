@@ -1,0 +1,3 @@
+# Keep LF on every checkout, including Windows with core.autocrlf on: bin/sfj is a bash script,
+# and a CRLF copy fails with "$'\r': command not found".
+* text=auto eol=lf

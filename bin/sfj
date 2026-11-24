@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# sfj — run `sf <args> --json` quietly and safely for piping to jq.
+#
+#   sfj data query -o my-org -q "SELECT Id FROM Account LIMIT 1" | jq -r '.result.records[].Id'
+#
+# WHY. On failure `sf ... --json` prints its error AS JSON on stdout (`.status`, `.name`,
+# `.message`, and no `.result`). So `sf ... --json | jq '.result.records[]?'` turns a failed query
+# into silence: jq finds no `.result`, the `?` swallows the null, and jq prints nothing and exits 0.
+# The query looks like a legitimate empty result. `2>/dev/null` makes it worse by hiding the
+# readable stderr copy too.
+#
+# WHAT THIS DOES. Sends stderr to a temp file (keeps beta and update banners out of the output),
+# prints ONLY the JSON on stdout, and when sf really failed, writes sf's `.name` and `.message` to
+# stderr and exits non-zero, so a failed query cannot pass for an empty result. It returns sf's own
+# exit code, or 1 when sf exits 0 while its own JSON reports an error.
+#
+# It is named `sfj`, not `sf`, so the guard that rewrites `sf ... --json | jq` to it never fires
+# on it a second time.
+#
+# DO NOT PASS `--json`: this appends it. Passing it anyway yields `sf ... --json --json`, which sf
+# accepts (verified 2026-08-24), so it is harmless rather than an error.
+#
+# THE VERDICT DOES NOT COME FROM `jq -e`'s EXIT CODE, and must not go back to it. jq exits non-zero
+# for reasons that have nothing to do with sf: 4 when the filter produced no output, 2 when it
+# cannot open the file, 5 on a trailing second document. An earlier version treated every one of
+# those as "sf failed" and printed a self-contradictory "FAILED (exit 0)" over commands that had
+# succeeded. A FAILED line on a success trains readers to ignore the one signal that catches the
+# silent-null trap, so "sf failed" and "the output could not be checked" are reported as
+# different things, and only the first exits non-zero.
+#
+# Requires sf and jq on PATH.
+
+set -u
+
+# Suppress the periodic "update available" banner, the one thing that can leak to stdout, and
+# skip telemetry start-up on each call.
+export SF_AUTOUPDATE_DISABLE=true
+export SF_SKIP_NEW_VERSION_CHECK=true
+export SF_DISABLE_TELEMETRY=true
+
+# Classify an `sf --json` envelope. Prints exactly one of:
+#   ok          well-formed success (`.status` 0 or absent, and a `.result` key)
+#   fail        well-formed error (`.status` != 0, or NO `.result` key, the silent-null shape)
+#   unverified  jq could not read the file at all: empty, missing, unparseable, more than one
+#               document, or no jq. Says nothing about whether sf succeeded.
+# A JSON value that parses but is not an object is `unverified`, not `fail`: indexing it with
+# `.result` is a loud jq error, so it cannot pass for a successful result.
+verdict() {
+  local v
+  v=$(command jq -r '
+        if type != "object"        then "unverified"
+        elif (.status // 0) != 0   then "fail"
+        elif (has("result") | not) then "fail"
+        else "ok" end' "$1" 2>/dev/null) || v=""
+  case "$v" in ok|fail) printf '%s' "$v" ;; *) printf 'unverified' ;; esac
+}
+
+out=$(mktemp) || exit 1
+err=$(mktemp) || { rm -f "$out"; exit 1; }
+trap 'rm -f "$out" "$err"' EXIT
+
+sf "$@" --json >"$out" 2>"$err"; rc=$?
+# Classify before streaming the payload, so the window between sf exiting and the check stays as
+# small as possible.
+v=$(verdict "$out")
+size=$(wc -c <"$out" 2>/dev/null | tr -d '[:space:]') || size=0
+cat "$out"
+
+if [ "$rc" -ne 0 ] || [ "$v" = fail ]; then
+  { if [ "$rc" -ne 0 ]; then
+      echo "sfj FAILED (sf exit $rc): sf $* --json"
+    else
+      echo "sfj FAILED (sf exit 0, but its JSON reports an error): sf $* --json"
+    fi
+    # Prefer sf's own .name and .message; fall back to its stderr when the JSON yields nothing.
+    detail=$(command jq -r 'if type == "object"
+                            then "  "+((.name // "ERR")+": "+((.message // "")|tostring))
+                            else empty end' "$out" 2>/dev/null)
+    if [ -n "$detail" ]; then printf '%s\n' "$detail"
+    elif [ -s "$err" ]; then sed 's/^/  /' "$err"
+    else echo "  (sf produced no error detail; ${size} bytes on stdout)"; fi
+  } >&2
+  [ "$rc" -ne 0 ] || rc=1
+elif [ "$v" != ok ]; then
+  { echo "sfj UNVERIFIED (sf exit $rc, ${size} bytes on stdout): sf $* --json"
+    echo "  sf reported success and its output was passed through unchanged, but that output"
+    echo "  could not be parsed as an sf --json envelope, so it was NOT checked for an error."
+    [ -s "$err" ] && sed 's/^/  /' "$err"
+  } >&2
+fi
+exit "$rc"
