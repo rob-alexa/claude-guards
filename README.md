@@ -39,7 +39,7 @@ corrected command is always available and does the same work.
 In a Claude Code session, add the marketplace once, then install either plugin or both:
 
 ```
-/plugin marketplace add rob-alexa/claude-code-guards
+/plugin marketplace add rob-alexa/claude-guards
 /plugin install command-guards@command-guards
 /plugin install salesforce-command-guards@command-guards
 ```
@@ -71,8 +71,8 @@ happens, skip the plugin and wire its runner by hand in `~/.claude/settings.json
             "type": "command",
             "command": "pythonw",
             "args": [
-              "C:/path/to/claude-code-guards/plugins/command-guards/hooks/hook-no-window.py", "--",
-              "python", "C:/path/to/claude-code-guards/plugins/command-guards/hooks/pretool-guards.py"
+              "C:/path/to/claude-guards/plugins/command-guards/hooks/hook-no-window.py", "--",
+              "python", "C:/path/to/claude-guards/plugins/command-guards/hooks/pretool-guards.py"
             ],
             "timeout": 30
           }
@@ -101,7 +101,7 @@ its own hook:
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /path/to/claude-code-guards/plugins/salesforce-command-guards/hooks/guards/pretool-soql-guard.py"
+            "command": "python3 /path/to/claude-guards/plugins/salesforce-command-guards/hooks/guards/pretool-soql-guard.py"
           }
         ]
       }

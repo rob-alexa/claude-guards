@@ -3,8 +3,8 @@
   "version": "2.0.0",
   "description": "PreToolUse guards for shell and GitHub commands that fail silently: an unset shell variable, a grep that aborts in Git Bash, and a merge that closes a stacked pull request.",
   "author": { "name": "Rob Alexander" },
-  "homepage": "https://github.com/rob-alexa/claude-code-guards",
-  "repository": "https://github.com/rob-alexa/claude-code-guards",
+  "homepage": "https://github.com/rob-alexa/claude-guards",
+  "repository": "https://github.com/rob-alexa/claude-guards",
   "license": "MIT",
   "keywords": ["hooks", "guards", "bash", "git-bash", "grep", "github", "pull-requests"]
 }
